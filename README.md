@@ -585,9 +585,9 @@ A: 修改 `PublishHistoryService` 类，实现数据库 CRUD 操作即可。
 
 ## 📞 联系方式
 
-- 📧 Email: your-email@example.com
-- 🐛 Issues: [GitHub Issues](https://github.com/yourusername/omnipost-ai/issues)
-- 💬 Discussions: [GitHub Discussions](https://github.com/yourusername/omnipost-ai/discussions)
+- 📧 Email: 10245000443@stu.ecnu.edu.cn
+- 🐛 Issues: [GitHub Issues](https://github.com/yuexizhou25-sys/omnipost-ai.git)
+- 💬 Discussions: [GitHub Discussions](https://github.com/yuexizhou25-sys/omnipost-ai.git)
 
 ---
 
