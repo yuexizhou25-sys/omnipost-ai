@@ -8,7 +8,7 @@ import {
   BookOpen,
   Play,
   Heart,
-  MessageDots,
+  MessageSquareDot,
   Zap,
   AlertTriangle,
 } from 'lucide-react';
@@ -18,7 +18,7 @@ const platformIcons: Record<PlatformType, React.ReactNode> = {
   zhihu: <BookOpen className="w-5 h-5" />,
   bilibili: <Play className="w-5 h-5" />,
   xiaohongshu: <Heart className="w-5 h-5" />,
-  weibo: <MessageDots className="w-5 h-5" />,
+  weibo: <MessageSquareDot className="w-5 h-5" />,
   douyin: <Zap className="w-5 h-5" />,
 };
 

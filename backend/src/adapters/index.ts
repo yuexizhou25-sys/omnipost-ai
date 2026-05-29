@@ -402,7 +402,7 @@ export class XiaoHongShuAdapter extends BasePlatformAdapter {
 
     let content = this.sanitizeContent(input.content);
     // 移除链接
-    content = content.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '$1');
+    content = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
 
     if (content.length > config.maxContentLength) {
       warnings.push(`内容过长，已从 ${content.length} 字截断至 ${config.maxContentLength} 字`);
@@ -633,7 +633,7 @@ export class DouyinAdapter extends BasePlatformAdapter {
     }
 
     let content = this.sanitizeContent(input.content);
-    content = content.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '$1');
+    content = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
 
     if (content.length > config.maxContentLength) {
       warnings.push(`内容过长，已从 ${content.length} 字截断至 ${config.maxContentLength} 字`);

@@ -76,13 +76,13 @@ export abstract class BasePlatformAdapter implements PlatformAdapter {
 
     switch (linkFormat) {
       case 'markdown':
-        result = result.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '[$1]($2)');
+        result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '[$1]($2)');
         break;
       case 'plain':
-        result = result.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '$2');
+        result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2');
         break;
       case 'html':
-        result = result.replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2">$1</a>');
+        result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');
         break;
     }
 

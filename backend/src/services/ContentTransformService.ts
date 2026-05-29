@@ -94,7 +94,7 @@ export class ContentTransformService implements ContentTransformer {
       .replace(/^# (.*?)$/gm, '<h1>$1</h1>')
       .replace(/\\*\\*([^*]+)\\*\\*/g, '<strong>$1</strong>')
       .replace(/\\*([^*]+)\\*/g, '<em>$1</em>')
-      .replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '<a href="$2">$1</a>')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
       .replace(/\\n/g, '<br>');
 
     return `<p>${result}</p>`;
@@ -114,7 +114,7 @@ export class ContentTransformService implements ContentTransformer {
       .replace(/^#+\\s+/gm, '')
       .replace(/\\*\\*([^*]+)\\*\\*/g, '$1')
       .replace(/\\*([^*]+)\\*/g, '$1')
-      .replace(/\\[([^\\]]+)\\]\\(([^)]+)\\)/g, '$1 ($2)')
+      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)')
       .replace(/_{3,}/g, '');
 
     // 移除多余空格
