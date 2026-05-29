@@ -1,0 +1,31 @@
+{
+  "name": "omnipost-ai",
+  "version": "1.0.0",
+  "description": "Multi-platform content synchronization and publishing tool",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=backend\" \"npm run dev --workspace=frontend\"",
+    "build": "npm run build --workspace=backend && npm run build --workspace=frontend",
+    "start": "npm start --workspace=backend & npm start --workspace=frontend",
+    "lint": "npm run lint --workspace=backend && npm run lint --workspace=frontend",
+    "test": "npm run test --workspace=backend && npm run test --workspace=frontend"
+  },
+  "keywords": [
+    "content-publishing",
+    "multi-platform",
+    "sync",
+    "wechat",
+    "zhihu",
+    "bilibili",
+    "xiaohongshu"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
