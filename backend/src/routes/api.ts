@@ -108,7 +108,7 @@ router.post('/preview', (req: Request, res: Response) => {
  */
 router.post('/publish', async (req: Request, res: Response) => {
   try {
-    const { content, platforms, isSimulated = true } = req.body as {
+    const { content, platforms, isSimulated: requestedSimulated = true } = req.body as {
       content: ContentInput;
       platforms: PlatformType[];
       isSimulated?: boolean;
@@ -118,6 +118,17 @@ router.post('/publish', async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         error: '缺少必要参数',
+      });
+    }
+
+    const forceMock = process.env.ENABLE_MOCK_MODE === 'true';
+    const realPublishEnabled = process.env.ENABLE_REAL_PUBLISH === 'true';
+    const isSimulated = forceMock ? true : requestedSimulated;
+
+    if (!isSimulated && !realPublishEnabled) {
+      return res.status(403).json({
+        success: false,
+        error: '真实发布未启用，请在 backend/.env 中设置 ENABLE_REAL_PUBLISH=true',
       });
     }
 

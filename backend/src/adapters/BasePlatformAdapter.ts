@@ -7,10 +7,11 @@ import {
   PublishOptions,
   PlatformType,
 } from '@types/index';
+import { contentTransformService } from '@services/ContentTransformService';
 
 /**
  * 平台适配器基类
- * 提供通用的适配逻辑框架
+ * 提供通用的适配逻辑框架，子类只需实现平台特有的适配策略
  */
 export abstract class BasePlatformAdapter implements PlatformAdapter {
   abstract platformType: PlatformType;
@@ -29,14 +30,23 @@ export abstract class BasePlatformAdapter implements PlatformAdapter {
    */
   getPreview(content: AdaptedContent): string {
     const { title, content: text } = content;
-    return `[${this.getConfig().displayName}]\\n${title}\\n${text}`;
+    const header = this.getConfig().displayName;
+    return title ? `【${header}】\n${title}\n${'─'.repeat(30)}\n${text}` : `【${header}】\n${text}`;
+  }
+
+  /**
+   * 按平台目标格式转换内容
+   */
+  protected transformContent(input: ContentInput): string {
+    const format = this.getConfig().contentFormat;
+    return contentTransformService.transform(input, format);
   }
 
   /**
    * 截断文本
    */
   protected truncateText(text: string, maxLength: number): string {
-    if (text.length <= maxLength) return text;
+    if (!maxLength || text.length <= maxLength) return text;
     return text.substring(0, maxLength - 3) + '...';
   }
 
@@ -44,28 +54,30 @@ export abstract class BasePlatformAdapter implements PlatformAdapter {
    * 清理内容中的格式
    */
   protected sanitizeContent(content: string): string {
-    // 移除 HTML 标签
-    return content
-      .replace(/<[^>]*>/g, '')
-      .trim();
+    return contentTransformService.sanitize(content);
   }
 
   /**
    * 提取主题标签
    */
   protected extractHashtags(content: string): string[] {
-    const hashtagRegex = /#[\\w\u4e00-\u9fff]+/g;
-    const matches = content.match(hashtagRegex);
-    return matches || [];
+    return contentTransformService.extractHashtags(content);
   }
 
   /**
    * 提取 @ 提及
    */
   protected extractMentions(content: string): string[] {
-    const mentionRegex = /@[\\w\u4e00-\u9fff]+/g;
-    const matches = content.match(mentionRegex);
-    return matches || [];
+    return contentTransformService.extractMentions(content);
+  }
+
+  /**
+   * 合并用户标签与内容中的标签
+   */
+  protected mergeTags(content: string, customTags?: string[], max = 5): string[] {
+    const fromContent = this.extractHashtags(content);
+    const fromInput = customTags ? customTags.map((t) => (t.startsWith('#') ? t : `#${t}`)) : [];
+    return [...new Set([...fromContent, ...fromInput])].slice(0, max);
   }
 
   /**
@@ -79,7 +91,7 @@ export abstract class BasePlatformAdapter implements PlatformAdapter {
         result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '[$1]($2)');
         break;
       case 'plain':
-        result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$2');
+        result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1 ($2)');
         break;
       case 'html':
         result = result.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>');

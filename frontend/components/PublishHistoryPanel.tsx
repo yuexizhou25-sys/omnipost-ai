@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { useAppStore } from '@/lib/store';
 import { apiClient } from '@/lib/api';
 import { PublishHistory, PlatformType } from '@/lib/types';
-import { Trash2, Copy, CheckCircle, AlertCircle } from 'lucide-react';
+import { getPlatformLabel } from '@/lib/platform-meta';
+import { Trash2, Copy, CheckCircle, XCircle, RotateCcw, History } from 'lucide-react';
 
 interface PublishHistoryProps {
   isOpen?: boolean;
@@ -14,76 +15,84 @@ interface PublishHistoryProps {
 export function PublishHistoryPanel({ isOpen = true, onClose }: PublishHistoryProps) {
   const publishHistory = useAppStore((state) => state.publishHistory);
   const setPublishHistory = useAppStore((state) => state.setPublishHistory);
-  const [loading, setLoading] = useState(false);
+  const setContent = useAppStore((state) => state.setContent);
+  const setSelectedPlatforms = useAppStore((state) => state.setSelectedPlatforms);
+  const setMessage = useAppStore((state) => state.setMessage);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
     if (!confirm('确定删除此发布记录吗？')) return;
 
     try {
-      setLoading(true);
+      setDeletingId(id);
       await apiClient.deleteHistory(id);
       setPublishHistory(publishHistory.filter((h) => h.id !== id));
-    } catch (error) {
-      console.error('删除失败:', error);
+      setMessage({ type: 'success', text: '记录已删除' });
+    } catch {
+      setMessage({ type: 'error', text: '删除失败' });
     } finally {
-      setLoading(false);
+      setDeletingId(null);
     }
   };
 
   const handleCopy = (history: PublishHistory) => {
-    const content = `
-标题: ${history.originalContent.title}
-内容: ${history.originalContent.content}
-平台: ${history.platforms.join(', ')}
-创建时间: ${new Date(history.createdAt).toLocaleString()}
-    `.trim();
-
-    navigator.clipboard.writeText(content);
-    alert('已复制到剪贴板');
+    const text = `标题: ${history.originalContent.title}\n内容: ${history.originalContent.content}\n平台: ${history.platforms.map(getPlatformLabel).join(', ')}`;
+    navigator.clipboard.writeText(text);
+    setMessage({ type: 'success', text: '已复制到剪贴板' });
   };
 
-  const getPlatformLabel = (platform: PlatformType): string => {
-    const labels: Record<PlatformType, string> = {
-      wechat: '微信',
-      zhihu: '知乎',
-      bilibili: 'B站',
-      xiaohongshu: '小红书',
-      weibo: '微博',
-      douyin: '抖音',
-    };
-    return labels[platform];
+  const handleRestore = (history: PublishHistory) => {
+    setContent(history.originalContent);
+    setSelectedPlatforms(history.platforms);
+    onClose?.();
+    setMessage({ type: 'info', text: '内容已恢复到编辑器' });
   };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-screen overflow-hidden flex flex-col">
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold">发布历史</h2>
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="glass-card max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col animate-fade-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border/60">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+              <History className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">发布历史</h2>
+              <p className="text-xs text-muted-foreground">共 {publishHistory.length} 条记录</p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="text-white hover:bg-blue-800 rounded p-2 transition"
+            className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition"
           >
-            ✕
+            <XCircle className="w-5 h-5" />
           </button>
         </div>
 
         <div className="overflow-y-auto flex-1">
           {publishHistory.length === 0 ? (
-            <div className="p-8 text-center text-gray-500">
-              <p>暂无发布记录</p>
+            <div className="p-12 text-center">
+              <History className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+              <p className="text-muted-foreground">暂无发布记录</p>
             </div>
           ) : (
-            <div className="divide-y">
+            <div className="divide-y divide-border/40">
               {publishHistory.map((history) => (
-                <PublishHistoryItem
+                <HistoryItem
                   key={history.id}
                   history={history}
                   onDelete={handleDelete}
                   onCopy={handleCopy}
-                  getPlatformLabel={getPlatformLabel}
-                  loading={loading}
+                  onRestore={handleRestore}
+                  isDeleting={deletingId === history.id}
                 />
               ))}
             </div>
@@ -94,73 +103,77 @@ export function PublishHistoryPanel({ isOpen = true, onClose }: PublishHistoryPr
   );
 }
 
-interface PublishHistoryItemProps {
-  history: PublishHistory;
-  onDelete: (id: string) => void;
-  onCopy: (history: PublishHistory) => void;
-  getPlatformLabel: (platform: PlatformType) => string;
-  loading: boolean;
-}
-
-function PublishHistoryItem({
+function HistoryItem({
   history,
   onDelete,
   onCopy,
-  getPlatformLabel,
-  loading,
-}: PublishHistoryItemProps) {
+  onRestore,
+  isDeleting,
+}: {
+  history: PublishHistory;
+  onDelete: (id: string) => void;
+  onCopy: (h: PublishHistory) => void;
+  onRestore: (h: PublishHistory) => void;
+  isDeleting: boolean;
+}) {
   const successCount = history.results.filter(
     (r) => r.status === 'success' || r.status === 'mock'
   ).length;
+  const snippet = history.originalContent.content;
+  const preview =
+    snippet.length > 80 ? snippet.substring(0, 80) + '...' : snippet;
 
   return (
-    <div className="p-6 hover:bg-gray-50 transition">
-      <div className="flex justify-between items-start mb-3">
-        <div className="flex-1">
-          <h3 className="font-semibold text-gray-900 text-lg line-clamp-1">
+    <div className="p-5 hover:bg-accent/30 transition">
+      <div className="flex justify-between items-start gap-4 mb-3">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-medium text-foreground truncate">
             {history.originalContent.title || '(无标题)'}
           </h3>
-          <p className="text-sm text-gray-600 line-clamp-2 mt-1">
-            {history.originalContent.content.substring(0, 100)}...
-          </p>
+          <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{preview}</p>
         </div>
-        <span className="text-xs text-gray-500 whitespace-nowrap ml-4">
+        <span className="text-[10px] text-muted-foreground whitespace-nowrap">
           {new Date(history.createdAt).toLocaleString()}
         </span>
       </div>
 
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex gap-1.5 flex-wrap">
             {history.platforms.map((platform) => (
               <span
                 key={platform}
-                className="inline-block px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded"
+                className="px-2 py-0.5 bg-secondary text-secondary-foreground text-[10px] rounded-full"
               >
-                {getPlatformLabel(platform)}
+                {getPlatformLabel(platform as PlatformType)}
               </span>
             ))}
           </div>
-          <div className="flex items-center gap-1 text-sm">
-            <CheckCircle className="w-4 h-4 text-green-600" />
-            <span className="text-gray-700">
-              {successCount}/{history.results.length}
-            </span>
+          <div className="flex items-center gap-1 text-xs text-muted-foreground">
+            <CheckCircle className="w-3.5 h-3.5 text-emerald-400" />
+            {successCount}/{history.results.length}
           </div>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-1">
+          <button
+            onClick={() => onRestore(history)}
+            className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition"
+            title="恢复到编辑器"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
           <button
             onClick={() => onCopy(history)}
-            className="p-2 text-gray-600 hover:bg-gray-100 rounded transition"
+            className="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition"
             title="复制"
           >
             <Copy className="w-4 h-4" />
           </button>
           <button
             onClick={() => onDelete(history.id)}
-            disabled={loading}
-            className="p-2 text-red-600 hover:bg-red-50 rounded transition"
+            disabled={isDeleting}
+            className="p-2 text-muted-foreground hover:text-red-400 hover:bg-red-500/10 rounded-lg transition disabled:opacity-50"
             title="删除"
           >
             <Trash2 className="w-4 h-4" />

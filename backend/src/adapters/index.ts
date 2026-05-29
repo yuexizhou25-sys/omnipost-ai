@@ -183,7 +183,7 @@ export class ZhihuAdapter extends BasePlatformAdapter {
     const allTags = [...new Set([...hashtags, ...customTags])].slice(0, 5);
 
     if (allTags.length > 0) {
-      content += `\\n\\n${allTags.join(' ')}`;
+      content += `\n\n${allTags.join(' ')}`;
     }
 
     return {
@@ -246,7 +246,7 @@ ${'━'.repeat(50)}
 ${content.title}
 ${'━'.repeat(50)}
 ${content.content}
-${content.metadata.tags ? `\\n标签: ${content.metadata.tags.join(' ')}` : ''}
+${content.metadata.tags ? `\n标签: ${content.metadata.tags.join(' ')}` : ''}
     `.trim();
   }
 }
@@ -295,7 +295,7 @@ export class BilibiliAdapter extends BasePlatformAdapter {
     // B站推荐格式：纯文本 + 标签
     const tags = input.tags ? input.tags.slice(0, 5).join(' #') : '';
     if (tags) {
-      content += `\\n\\n#${tags}`;
+      content += `\n\n#${tags}`;
     }
 
     if (!input.videoUrl) {
@@ -362,7 +362,7 @@ ${'─'.repeat(40)}
 ${content.title}
 ${'─'.repeat(40)}
 ${content.content}
-${content.metadata.hasVideo ? '\\n[附带视频]' : ''}
+${content.metadata.hasVideo ? '\n[附带视频]' : ''}
     `.trim();
   }
 }
@@ -527,9 +527,16 @@ export class WeiboAdapter extends BasePlatformAdapter {
       content = this.truncateText(content, config.maxContentLength);
     }
 
-    // 添加 @ 和 #
+    // 添加 @ 和 #，合并用户自定义标签
     const mentions = this.extractMentions(content);
-    const hashtags = this.extractHashtags(content);
+    const hashtags = this.mergeTags(content, input.tags, 5);
+    if (hashtags.length > 0) {
+      const existing = this.extractHashtags(content);
+      const newTags = hashtags.filter((t) => !existing.includes(t));
+      if (newTags.length > 0) {
+        content += ` ${newTags.join(' ')}`;
+      }
+    }
 
     return {
       platformType: this.platformType,
@@ -589,7 +596,7 @@ export class WeiboAdapter extends BasePlatformAdapter {
 【微博】
 ${'═'.repeat(40)}
 ${content.content}
-${content.images.length > 0 ? `\\n[${content.images.length}张图片]` : ''}
+${content.images.length > 0 ? `\n[${content.images.length}张图片]` : ''}
     `.trim();
   }
 }
@@ -640,12 +647,19 @@ export class DouyinAdapter extends BasePlatformAdapter {
       content = this.truncateText(content, config.maxContentLength);
     }
 
-    // 添加热门标签
+    // 合并标签，不足时补充推荐标签
     const hashtags = this.extractHashtags(content);
-    const trendyTags = ['#热门', '#分享', '#今日分享'].slice(0, 3 - hashtags.length);
-    const allTags = [...hashtags, ...trendyTags];
-
-    content += ` ${allTags.join(' ')}`;
+    const customTags = input.tags ? input.tags.map((t) => (t.startsWith('#') ? t : `#${t}`)) : [];
+    let allTags = [...new Set([...hashtags, ...customTags])];
+    if (allTags.length < 3) {
+      for (const tag of ['#热门', '#分享', '#今日分享']) {
+        if (allTags.length >= 3) break;
+        if (!allTags.includes(tag)) allTags.push(tag);
+      }
+    }
+    if (allTags.length > 0) {
+      content += ` ${allTags.join(' ')}`;
+    }
 
     if (!input.videoUrl) {
       warnings.push('抖音优先推荐有视频的内容');

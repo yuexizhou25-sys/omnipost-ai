@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React from 'react';
 import { useAppStore } from '@/lib/store';
 import { PublishResult, PlatformType } from '@/lib/types';
-import { Check, X, Clock } from 'lucide-react';
+import { getPlatformLabel } from '@/lib/platform-meta';
+import { Check, X, Clock, XCircle, Send } from 'lucide-react';
 
 interface PublishResultsProps {
   isOpen?: boolean;
@@ -17,43 +18,44 @@ export function PublishResults({ isOpen = true, onClose }: PublishResultsProps) 
     return null;
   }
 
-  const successCount = publishResults.filter((r) => r.status === 'success' || r.status === 'mock').length;
+  const successCount = publishResults.filter(
+    (r) => r.status === 'success' || r.status === 'mock'
+  ).length;
   const failedCount = publishResults.filter((r) => r.status === 'failed').length;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-96 overflow-y-auto">
-        <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 flex justify-between items-center">
-          <h2 className="text-2xl font-bold">发布结果</h2>
+    <div
+      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="glass-card max-w-2xl w-full max-h-[80vh] overflow-hidden flex flex-col animate-fade-in"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-6 py-5 border-b border-border/60">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center">
+              <Send className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-foreground">发布结果</h2>
+              <p className="text-xs text-muted-foreground">
+                {successCount} 成功 · {failedCount} 失败
+              </p>
+            </div>
+          </div>
           <button
             onClick={onClose}
-            className="text-white hover:bg-blue-800 rounded p-2 transition"
+            className="p-2 rounded-lg hover:bg-accent text-muted-foreground hover:text-foreground transition"
           >
-            ✕
+            <XCircle className="w-5 h-5" />
           </button>
         </div>
 
-        <div className="p-6 space-y-4">
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <div className="bg-blue-50 rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-blue-600">{publishResults.length}</p>
-              <p className="text-sm text-gray-600">总计</p>
-            </div>
-            <div className="bg-green-50 rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-green-600">{successCount}</p>
-              <p className="text-sm text-gray-600">成功/模拟</p>
-            </div>
-            <div className="bg-red-50 rounded-lg p-4 text-center">
-              <p className="text-3xl font-bold text-red-600">{failedCount}</p>
-              <p className="text-sm text-gray-600">失败</p>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            {publishResults.map((result) => (
-              <PublishResultItem key={result.id} result={result} />
-            ))}
-          </div>
+        <div className="p-6 overflow-y-auto space-y-3">
+          {publishResults.map((result) => (
+            <PublishResultItem key={result.id} result={result} />
+          ))}
         </div>
       </div>
     </div>
@@ -61,55 +63,49 @@ export function PublishResults({ isOpen = true, onClose }: PublishResultsProps) 
 }
 
 function PublishResultItem({ result }: { result: PublishResult }) {
-  const getPlatformLabel = (platform: PlatformType): string => {
-    const labels: Record<PlatformType, string> = {
-      wechat: '微信公众号',
-      zhihu: '知乎',
-      bilibili: 'B站',
-      xiaohongshu: '小红书',
-      weibo: '微博',
-      douyin: '抖音',
-    };
-    return labels[platform];
-  };
+  const isSuccess = result.status === 'success' || result.status === 'mock';
 
-  const statusIcon =
-    result.status === 'success' || result.status === 'mock' ? (
-      <Check className="w-5 h-5 text-green-600" />
-    ) : result.status === 'failed' ? (
-      <X className="w-5 h-5 text-red-600" />
-    ) : (
-      <Clock className="w-5 h-5 text-yellow-600" />
-    );
-
-  const statusBg =
-    result.status === 'success' || result.status === 'mock'
-      ? 'bg-green-50'
-      : result.status === 'failed'
-        ? 'bg-red-50'
-        : 'bg-yellow-50';
+  const statusIcon = isSuccess ? (
+    <Check className="w-4 h-4 text-emerald-400" />
+  ) : result.status === 'failed' ? (
+    <X className="w-4 h-4 text-red-400" />
+  ) : (
+    <Clock className="w-4 h-4 text-amber-400" />
+  );
 
   return (
-    <div className={`${statusBg} border rounded-lg p-4`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+    <div
+      className={`flex items-center justify-between p-4 rounded-xl border ${
+        isSuccess
+          ? 'border-emerald-500/20 bg-emerald-500/5'
+          : result.status === 'failed'
+            ? 'border-red-500/20 bg-red-500/5'
+            : 'border-amber-500/20 bg-amber-500/5'
+      }`}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+            isSuccess ? 'bg-emerald-500/20' : 'bg-red-500/20'
+          }`}
+        >
           {statusIcon}
-          <div>
-            <p className="font-semibold text-gray-900">
-              {getPlatformLabel(result.platformType)}
-            </p>
-            <p className="text-sm text-gray-600">{result.message}</p>
-            {result.isSimulated && (
-              <span className="inline-block mt-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded">
-                模拟模式
-              </span>
-            )}
-          </div>
         </div>
-        <span className="text-xs text-gray-500">
-          {new Date(result.timestamp).toLocaleTimeString()}
-        </span>
+        <div>
+          <p className="font-medium text-foreground text-sm">
+            {getPlatformLabel(result.platformType as PlatformType)}
+          </p>
+          <p className="text-xs text-muted-foreground mt-0.5">{result.message}</p>
+          {result.isSimulated && (
+            <span className="inline-block mt-1 px-2 py-0.5 bg-primary/20 text-primary text-[10px] rounded-full">
+              模拟发布
+            </span>
+          )}
+        </div>
       </div>
+      <span className="text-[10px] text-muted-foreground">
+        {new Date(result.timestamp).toLocaleTimeString()}
+      </span>
     </div>
   );
 }
