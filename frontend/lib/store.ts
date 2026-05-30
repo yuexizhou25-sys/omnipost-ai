@@ -38,6 +38,9 @@ interface AppState {
   showHistory: boolean;
   setShowHistory: (show: boolean) => void;
 
+  previewTab: PlatformType;
+  setPreviewTab: (tab: PlatformType) => void;
+
   message: { type: 'success' | 'error' | 'info'; text: string } | null;
   setMessage: (message: { type: 'success' | 'error' | 'info'; text: string } | null) => void;
 }
@@ -95,6 +98,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   showHistory: false,
   setShowHistory: (show) => set({ showHistory: show }),
+
+  previewTab: 'wechat',
+  setPreviewTab: (tab) => set({ previewTab: tab }),
 
   message: null,
   setMessage: (message) => {

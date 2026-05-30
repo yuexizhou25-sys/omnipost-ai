@@ -81,6 +81,16 @@ export abstract class BasePlatformAdapter implements PlatformAdapter {
   }
 
   /**
+   * 提取第一句话（用于抖音文案等）
+   */
+  protected extractFirstSentence(text: string): string {
+    const plain = this.sanitizeContent(text).trim();
+    if (!plain) return '';
+    const match = plain.match(/^[^。！？\n.!?]+[。！？]?/);
+    return (match ? match[0] : plain.split('\n')[0]).trim();
+  }
+
+  /**
    * 转换链接格式
    */
   protected formatLinks(content: string, linkFormat: 'markdown' | 'plain' | 'html'): string {

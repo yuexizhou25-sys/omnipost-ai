@@ -498,7 +498,7 @@ export class WeiboAdapter extends BasePlatformAdapter {
       displayName: '微博',
       icon: 'weibo',
       maxTitleLength: 0,
-      maxContentLength: 280,
+      maxContentLength: 140,
       supportsImages: true,
       supportsVideo: true,
       supportsLink: true,
@@ -518,16 +518,12 @@ export class WeiboAdapter extends BasePlatformAdapter {
   adaptContent(input: ContentInput): AdaptedContent {
     const config = this.getConfig();
     const warnings: string[] = [];
+    const originalLength = input.content.length;
 
-    let content = this.sanitizeContent(input.content);
+    // Markdown → 纯文本，保留图片 URL
+    let content = this.transformContent(input);
+    content = this.formatLinks(content, 'plain');
 
-    // 微博字数限制
-    if (content.length > config.maxContentLength) {
-      warnings.push(`内容过长，已从 ${content.length} 字截断至 ${config.maxContentLength} 字`);
-      content = this.truncateText(content, config.maxContentLength);
-    }
-
-    // 添加 @ 和 #，合并用户自定义标签
     const mentions = this.extractMentions(content);
     const hashtags = this.mergeTags(content, input.tags, 5);
     if (hashtags.length > 0) {
@@ -536,6 +532,17 @@ export class WeiboAdapter extends BasePlatformAdapter {
       if (newTags.length > 0) {
         content += ` ${newTags.join(' ')}`;
       }
+    }
+
+    if (content.length > config.maxContentLength) {
+      warnings.push(
+        `微博正文超过 ${config.maxContentLength} 字（当前 ${content.length} 字），已自动截断；建议精简文案或生成长微博图片`
+      );
+      content = this.truncateText(content, config.maxContentLength);
+    } else if (originalLength > config.maxContentLength) {
+      warnings.push(
+        `原始内容超过 ${config.maxContentLength} 字，已转换并截断为普通文本`
+      );
     }
 
     return {
@@ -547,6 +554,8 @@ export class WeiboAdapter extends BasePlatformAdapter {
       metadata: {
         mentions,
         hashtags,
+        originalLength,
+        truncated: content.length < originalLength || content.endsWith('...'),
       },
       warnings,
     };
@@ -634,46 +643,41 @@ export class DouyinAdapter extends BasePlatformAdapter {
     const config = this.getConfig();
     const warnings: string[] = [];
 
-    const title = this.truncateText(input.title, config.maxTitleLength);
-    if (input.title.length > config.maxTitleLength) {
-      warnings.push(`标题过长，已从 ${input.title.length} 字截断至 ${config.maxTitleLength} 字`);
+    // 提取视频文案：优先标题，否则正文第一句话
+    const captionSource = input.title?.trim() || this.extractFirstSentence(input.content);
+    let caption = this.sanitizeContent(captionSource);
+
+    // 自动提取并合并 #话题
+    const hashtags = this.mergeTags(input.content, input.tags, 5);
+    const existingTags = this.extractHashtags(caption);
+    const newTags = hashtags.filter((t) => !existingTags.includes(t));
+    if (newTags.length > 0) {
+      caption += ` ${newTags.join(' ')}`;
     }
 
-    let content = this.sanitizeContent(input.content);
-    content = content.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '$1');
-
-    if (content.length > config.maxContentLength) {
-      warnings.push(`内容过长，已从 ${content.length} 字截断至 ${config.maxContentLength} 字`);
-      content = this.truncateText(content, config.maxContentLength);
+    if (caption.length > config.maxContentLength) {
+      warnings.push(`视频文案过长，已从 ${caption.length} 字截断至 ${config.maxContentLength} 字`);
+      caption = this.truncateText(caption, config.maxContentLength);
     }
 
-    // 合并标签，不足时补充推荐标签
-    const hashtags = this.extractHashtags(content);
-    const customTags = input.tags ? input.tags.map((t) => (t.startsWith('#') ? t : `#${t}`)) : [];
-    let allTags = [...new Set([...hashtags, ...customTags])];
-    if (allTags.length < 3) {
-      for (const tag of ['#热门', '#分享', '#今日分享']) {
-        if (allTags.length >= 3) break;
-        if (!allTags.includes(tag)) allTags.push(tag);
-      }
-    }
-    if (allTags.length > 0) {
-      content += ` ${allTags.join(' ')}`;
-    }
+    const hasVideo = !!input.videoUrl?.trim();
+    const hasImages = (input.images?.filter(Boolean).length ?? 0) > 0;
 
-    if (!input.videoUrl) {
-      warnings.push('抖音优先推荐有视频的内容');
+    if (!hasVideo && !hasImages) {
+      warnings.push('抖音发布需填写「视频 URL」或「图片 URL」至少一项');
     }
 
     return {
       platformType: this.platformType,
-      title,
-      content,
+      title: caption.slice(0, config.maxTitleLength),
+      content: caption,
       images: input.images || [],
       videoUrl: input.videoUrl,
       metadata: {
-        tags: allTags,
-        hasVideo: !!input.videoUrl,
+        tags: hashtags,
+        hasVideo,
+        hasImages,
+        captionSource: input.title?.trim() ? 'title' : 'first_sentence',
       },
       warnings,
     };
@@ -684,6 +688,20 @@ export class DouyinAdapter extends BasePlatformAdapter {
     options?: PublishOptions
   ): Promise<PublishResult> {
     const isSimulated = options?.isSimulated !== false;
+
+    const hasVideo = !!content.videoUrl?.trim();
+    const hasImages = (content.images?.filter(Boolean).length ?? 0) > 0;
+
+    if (!hasVideo && !hasImages) {
+      return {
+        id: uuidv4(),
+        platformType: this.platformType,
+        status: 'failed',
+        message: '发布失败：抖音必须填写「视频 URL」或「图片 URL」至少一项',
+        timestamp: new Date(),
+        isSimulated,
+      };
+    }
 
     try {
       if (isSimulated) {
@@ -721,10 +739,9 @@ export class DouyinAdapter extends BasePlatformAdapter {
   getPreview(content: AdaptedContent): string {
     return `
 【抖音视频描述】
-${'🎬'.repeat(20)}
-${content.title}
-${'─'.repeat(40)}
+${'🎬'.repeat(12)}
 ${content.content}
+${content.videoUrl ? '\n[已关联视频]' : content.images?.length ? `\n[${content.images.length} 张图片]` : '\n[缺少视频/图片]'}
     `.trim();
   }
 }
